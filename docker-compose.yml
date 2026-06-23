@@ -10,6 +10,10 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
+      - RENDERER_URL=http://renderer:3001
+    depends_on:
+      renderer:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=5)"]
@@ -17,3 +21,20 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  renderer:
+    build: ./renderer
+    environment:
+      - RENDERER_PORT=3001
+    volumes:
+      - video-output:/app/output
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  video-output:

@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pydantic
 openai
+anthropic
 jinja2
 pytz
 google-genai

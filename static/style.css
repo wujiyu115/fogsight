@@ -253,3 +253,126 @@ button:disabled {
     from { opacity: 0; transform: translate(-50%, -40%); }
     to { opacity: 1; transform: translate(-50%, -50%); }
 }
+
+/* === 测试 LLM 按钮 === */
+.test-llm-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.5rem;
+}
+.test-llm-button:hover { border-color: var(--bubble-user-bg); color: var(--bubble-user-bg); }
+.test-llm-button svg { flex-shrink: 0; }
+.test-llm-output {
+    width: 100%;
+    max-width: 600px;
+    max-height: 300px;
+    overflow: auto;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-bottom: 1rem;
+    text-align: left;
+}
+
+/* === 模式切换 === */
+.mode-switcher {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+.mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.mode-btn:hover {
+    border-color: var(--bubble-user-bg);
+    color: var(--text-primary);
+}
+.mode-btn.active {
+    background: var(--bubble-user-bg);
+    color: var(--text-on-accent);
+    border-color: var(--bubble-user-bg);
+}
+.mode-btn svg {
+    flex-shrink: 0;
+}
+
+/* === 视频播放器 === */
+.video-wrapper {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    max-width: calc(80vh * 16 / 9);
+    max-height: 80vh;
+    margin: 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+}
+.rendered-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* === 渲染进度 === */
+.render-progress-container {
+    padding: 16px 20px;
+    background: var(--bubble-agent-bg);
+    border-radius: var(--radius-lg);
+}
+.render-progress-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.render-progress-header svg {
+    color: var(--bubble-user-bg);
+    flex-shrink: 0;
+}
+.render-percent {
+    margin-left: auto;
+    color: var(--bubble-user-bg);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.render-progress-bar {
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.render-progress-fill {
+    height: 100%;
+    background: var(--bubble-user-bg);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}

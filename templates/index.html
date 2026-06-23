@@ -27,6 +27,16 @@
         <div class="initial-content">
             <div class="hero-group">
                 <h1 data-translate-key="heroTitle">在此赋予概念以生命，转瞬之间</h1>
+                <div id="mode-switcher" class="mode-switcher">
+                    <button class="mode-btn active" data-mode="html">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <span data-translate-key="modeHtml">快速预览</span>
+                    </button>
+                    <button class="mode-btn" data-mode="video">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553 -2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1 -1.447 .894L15 14V10z"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg>
+                        <span data-translate-key="modeVideo">高质量视频</span>
+                    </button>
+                </div>
                 <form id="initial-form" class="initial-form">
                     <div id="animated-placeholder" class="animated-placeholder"></div>
                     <input type="text" id="initial-input" required>
@@ -35,6 +45,11 @@
                     </button>
                 </form>
             </div>
+             <button id="test-llm-button" class="test-llm-button" title="测试 LLM 连接">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span data-translate-key="testLlm">测试 LLM</span>
+             </button>
+             <pre id="test-llm-output" class="test-llm-output" style="display:none;"></pre>
              <footer class="initial-footer">
                 <a href="https://github.com/fogsightai/fogsight" target="_blank" data-translate-key="githubrepo">Github 开源仓库</a>
                 <span>•</span>
@@ -122,6 +137,43 @@
                         <svg viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z" /><path d="M3 6m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /></svg>
                         <span data-translate-key="exportAsVideo">导出为视频</span>
                     </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="video-player-template">
+        <div class="message-group agent has-player">
+            <div class="player-container">
+                <div class="video-wrapper">
+                    <video class="rendered-video" controls playsinline>
+                        <source type="video/mp4">
+                    </video>
+                </div>
+                <div class="player-actions" style="grid-template-columns: 1fr 1fr;">
+                    <button class="action-button open-new-window">
+                        <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        <span data-translate-key="openInNewWindow">在新窗口中打开</span>
+                    </button>
+                    <button class="action-button save-video">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span data-translate-key="saveAsVideo">下载视频</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="render-progress-template">
+        <div class="message-group agent">
+            <div class="render-progress-container">
+                <div class="render-progress-header">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553 -2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1 -1.447 .894L15 14V10z"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg>
+                    <span data-translate-key="renderingVideo">渲染视频中...</span>
+                    <span class="render-percent">0%</span>
+                </div>
+                <div class="render-progress-bar">
+                    <div class="render-progress-fill" style="width: 0%"></div>
                 </div>
             </div>
         </div>

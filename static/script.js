@@ -7,6 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const translations = {
         heroTitle: { zh: "在此赋予概念以生命，转瞬之间", en: "Bring Concepts to Life Here" },
         startCreatingTitle: { zh: "开始创作", en: "Start Creating" },
+        modeHtml: { zh: "快速预览", en: "Quick Preview" },
+        modeVideo: { zh: "高质量视频", en: "HD Video" },
+        renderingVideo: { zh: "渲染视频中...", en: "Rendering video..." },
+        renderComplete: { zh: "视频渲染完成", en: "Video rendered" },
+        renderError: { zh: "视频渲染失败，请重试", en: "Video rendering failed, please retry" },
+        saveAsVideo: { zh: "下载视频", en: "Download Video" },
+        testLlm: { zh: "测试 LLM", en: "Test LLM" },
+        testLlmRunning: { zh: "测试中...", en: "Testing..." },
         githubrepo: { zh: "Github 开源仓库", en: "Fogsight Github Repo" },
         officialWebsite: { zh: "通向 AGI 之路社区", en: "WaytoAGI Open Source Community" },
         groupChat: { zh: "联系我们/加入交流群", en: "Contact Us" },
@@ -54,6 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
         status: document.getElementById('agent-status-template'),
         code: document.getElementById('agent-code-template'),
         player: document.getElementById('animation-player-template'),
+        videoPlayer: document.getElementById('video-player-template'),
+        renderProgress: document.getElementById('render-progress-template'),
         error: document.getElementById('agent-error-template'),
     };
 
@@ -68,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let conversationHistory = [];
     let accumulatedCode = '';
     let placeholderInterval;
+    let selectedMode = 'html';
 
     function handleFormSubmit(e) {
         e.preventDefault();
@@ -86,7 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isInitial) switchToChatView();
 
         conversationHistory.push({ role: 'user', content: topic });
-        startGeneration(topic);
+        if (selectedMode === 'video') {
+            startVideoGeneration(topic);
+        } else {
+            startGeneration(topic);
+        }
         input.value = '';
         if (isInitial) placeholderContainer?.classList?.remove('hidden');
     }
@@ -101,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
             submitButton.classList.add('disabled');
         }
         accumulatedCode = '';
+        let fullResponse = '';
         let inCodeBlock = false;
         let codeBlockElement = null;
 
@@ -130,11 +146,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const jsonStr = line.substring(6);
                     if (jsonStr.includes('[DONE]')) {
-                        console.log('Streaming complete');
+                        console.log('Streaming complete. Full response length:', fullResponse.length);
+
+                        // If no code block was detected via ```, try extracting HTML from raw response
+                        if (!codeBlockElement && fullResponse.length > 0) {
+                            console.log('No ``` markers found, attempting to extract HTML from raw response.');
+                            const extracted = extractHtmlFromText(fullResponse);
+                            if (extracted) {
+                                if (agentThinkingMessage) agentThinkingMessage.remove();
+                                codeBlockElement = appendCodeBlock();
+                                updateCodeBlock(codeBlockElement, extracted);
+                                accumulatedCode = extracted;
+                            }
+                        }
+
                         conversationHistory.push({ role: 'assistant', content: accumulatedCode });
 
-                        if (!codeBlockElement) {
-                            console.warn('No code block element created. Full response:', accumulatedCode);
+                        if (!codeBlockElement || !accumulatedCode) {
+                            console.warn('No code block element created. Full response:', fullResponse);
                             throw new LLMParseError('LLM did not return a complete code block.');
                         }
 
@@ -162,13 +191,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         data = JSON.parse(jsonStr);
                     } catch (err) {
                         console.error('Failed to parse JSON:', jsonStr);
-                        throw new LLMParseError('Invalid response format from server.');
+                        continue;
                     }
 
                     if (data.error) {
                         throw new LLMParseError(data.error);
                     }
                     const token = data.token || '';
+                    fullResponse += token;
 
                     if (!inCodeBlock && token.includes('```')) {
                         inCodeBlock = true;
@@ -184,6 +214,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else {
                             updateCodeBlock(codeBlockElement, token);
                         }
+                    } else if (!inCodeBlock && !codeBlockElement) {
+                        // Check accumulated fullResponse for HTML start without ``` markers
+                        if (fullResponse.includes('<!DOCTYPE') || fullResponse.includes('<html')) {
+                            if (agentThinkingMessage) agentThinkingMessage.remove();
+                            codeBlockElement = appendCodeBlock();
+                            inCodeBlock = true;
+                            const htmlStart = fullResponse.indexOf('<!DOCTYPE') !== -1
+                                ? fullResponse.indexOf('<!DOCTYPE')
+                                : fullResponse.indexOf('<html');
+                            const alreadyReceived = fullResponse.substring(htmlStart);
+                            updateCodeBlock(codeBlockElement, alreadyReceived);
+                            accumulatedCode = '';
+                            updateCodeBlock(codeBlockElement, '');
+                            accumulatedCode = alreadyReceived;
+                        }
                     }
                 }
             }
@@ -198,16 +243,219 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (error instanceof LLMParseError) {
                 showWarning(translations.errorLLMParseError[currentLang]);
             } else {
-                showWarning(translations.errorFetchFailed[currentLang]); // 默认 fallback
+                showWarning(translations.errorFetchFailed[currentLang]);
             }
 
-            appendErrorMessage(translations.errorMessage[currentLang]);  // 保留 chat-log 中的提示
+            appendErrorMessage(translations.errorMessage[currentLang]);
         } finally {
-        if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.classList.remove('disabled');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.classList.remove('disabled');
+            }
         }
     }
+
+    async function startVideoGeneration(topic) {
+        console.log('Starting video generation for:', topic);
+        appendUserMessage(topic);
+        const agentThinkingMessage = appendAgentStatus(translations.agentThinking[currentLang]);
+        const submitButton = document.querySelector('.submit-button');
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.classList.add('disabled');
+        }
+        accumulatedCode = '';
+        let inCodeBlock = false;
+        let codeBlockElement = null;
+        let rawJsonText = '';
+
+        try {
+            const response = await fetch(`${config.apiBaseUrl}/generate-video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic: topic, history: conversationHistory, mode: 'video' })
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const jsonStr = line.substring(6);
+
+                    if (jsonStr.includes('[DONE]')) {
+                        console.log('Video scene JSON streaming complete');
+                        if (agentThinkingMessage) agentThinkingMessage.remove();
+
+                        if (codeBlockElement) {
+                            markCodeAsComplete(codeBlockElement);
+                        }
+
+                        let sceneData;
+                        try {
+                            let jsonToParse = rawJsonText.trim();
+                            const mdMatch = jsonToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+                            if (mdMatch) jsonToParse = mdMatch[1].trim();
+                            sceneData = JSON.parse(jsonToParse);
+                        } catch (err) {
+                            console.error('Failed to parse scene JSON:', err);
+                            throw new LLMParseError('Invalid scene JSON received.');
+                        }
+
+                        conversationHistory.push({ role: 'assistant', content: rawJsonText });
+                        await submitRenderJob(sceneData, topic);
+                        scrollToBottom();
+                        return;
+                    }
+
+                    let data;
+                    try { data = JSON.parse(jsonStr); } catch (err) {
+                        console.error('Failed to parse SSE JSON:', jsonStr);
+                        continue;
+                    }
+
+                    if (data.error) throw new LLMParseError(data.error);
+
+                    const token = data.token || '';
+                    rawJsonText += token;
+
+                    if (!codeBlockElement && rawJsonText.length > 5) {
+                        if (agentThinkingMessage) agentThinkingMessage.remove();
+                        codeBlockElement = appendCodeBlock();
+                    }
+
+                    if (codeBlockElement) {
+                        let displayToken = token;
+                        if (!inCodeBlock && token.includes('```')) {
+                            inCodeBlock = true;
+                            displayToken = token.substring(token.indexOf('```') + 3).replace(/^json\n/, '');
+                        } else if (inCodeBlock && token.includes('```')) {
+                            inCodeBlock = false;
+                            displayToken = token.substring(0, token.indexOf('```'));
+                        }
+                        if (displayToken) updateCodeBlock(codeBlockElement, displayToken);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Video generation failed:", error);
+            if (agentThinkingMessage) agentThinkingMessage.remove();
+            if (error instanceof LLMParseError) {
+                showWarning(translations.errorLLMParseError[currentLang]);
+            } else {
+                showWarning(translations.errorFetchFailed[currentLang]);
+            }
+            appendErrorMessage(translations.errorMessage[currentLang]);
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.classList.remove('disabled');
+            }
+        }
+    }
+
+    async function submitRenderJob(sceneData, topic) {
+        const progressElement = appendRenderProgress();
+        const percentEl = progressElement.querySelector('.render-percent');
+        const fillEl = progressElement.querySelector('.render-progress-fill');
+
+        try {
+            const resp = await fetch(`${config.apiBaseUrl}/render-video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sceneData })
+            });
+
+            if (!resp.ok) throw new Error('Render request failed');
+            const { taskId } = await resp.json();
+
+            await pollRenderStatus(taskId, topic, progressElement, percentEl, fillEl);
+        } catch (err) {
+            console.error('Render job submission failed:', err);
+            progressElement.remove();
+            showWarning(translations.renderError[currentLang]);
+        }
+    }
+
+    async function pollRenderStatus(taskId, topic, progressElement, percentEl, fillEl) {
+        const poll = async () => {
+            try {
+                const resp = await fetch(`${config.apiBaseUrl}/video-status/${taskId}`);
+                const data = await resp.json();
+
+                if (data.status === 'rendering' || data.status === 'queued') {
+                    percentEl.textContent = `${data.progress || 0}%`;
+                    fillEl.style.width = `${data.progress || 0}%`;
+                    setTimeout(poll, 1500);
+                } else if (data.status === 'done') {
+                    progressElement.remove();
+                    appendVideoPlayer(`${config.apiBaseUrl}/videos/${taskId}.mp4`, topic);
+                    scrollToBottom();
+                } else if (data.status === 'error') {
+                    progressElement.remove();
+                    showWarning(translations.renderError[currentLang]);
+                    appendErrorMessage(data.error || translations.renderError[currentLang]);
+                }
+            } catch (err) {
+                progressElement.remove();
+                showWarning(translations.renderError[currentLang]);
+            }
+        };
+        poll();
+    }
+
+    function appendRenderProgress() {
+        const node = templates.renderProgress.content.cloneNode(true);
+        const element = node.firstElementChild;
+        element.querySelectorAll('[data-translate-key]').forEach(el => {
+            const key = el.dataset.translateKey;
+            const translation = translations[key]?.[currentLang];
+            if (translation) el.textContent = translation;
+        });
+        chatLog.appendChild(element);
+        scrollToBottom();
+        return element;
+    }
+
+    function appendVideoPlayer(videoUrl, topic) {
+        const node = templates.videoPlayer.content.cloneNode(true);
+        const playerElement = node.firstElementChild;
+        playerElement.querySelectorAll('[data-translate-key]').forEach(el => {
+            const key = el.dataset.translateKey;
+            el.textContent = translations[key]?.[currentLang] || el.textContent;
+        });
+
+        const video = playerElement.querySelector('.rendered-video');
+        const source = video.querySelector('source');
+        source.src = videoUrl;
+        video.load();
+
+        playerElement.querySelector('.open-new-window').addEventListener('click', () => {
+            window.open(videoUrl, '_blank');
+        });
+        playerElement.querySelector('.save-video').addEventListener('click', () => {
+            const a = Object.assign(document.createElement('a'), {
+                href: videoUrl,
+                download: `${topic.replace(/\s/g, '_') || 'fogsight_video'}.mp4`
+            });
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        });
+
+        chatLog.appendChild(playerElement);
+        scrollToBottom();
     }
 
     function switchToChatView() {
@@ -292,6 +540,21 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     }
 
+    function extractHtmlFromText(text) {
+        // Try to extract from markdown code block
+        const mdMatch = text.match(/```(?:html)?\s*\n?([\s\S]*?)```/);
+        if (mdMatch) return mdMatch[1].trim();
+
+        // Try to find raw HTML (<!DOCTYPE ... </html> or <html> ... </html>)
+        const doctypeMatch = text.match(/(<!DOCTYPE[\s\S]*<\/html>)/i);
+        if (doctypeMatch) return doctypeMatch[1].trim();
+
+        const htmlMatch = text.match(/(<html[\s\S]*<\/html>)/i);
+        if (htmlMatch) return htmlMatch[1].trim();
+
+        return null;
+    }
+
     function isHtmlContentValid(htmlContent) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlContent, "text/html");
@@ -366,6 +629,48 @@ document.addEventListener('DOMContentLoaded', () => {
         initialForm.addEventListener('submit', handleFormSubmit);
         chatForm.addEventListener('submit', handleFormSubmit);
         newChatButton.addEventListener('click', () => location.reload());
+
+        document.getElementById('test-llm-button')?.addEventListener('click', async () => {
+            const btn = document.getElementById('test-llm-button');
+            const output = document.getElementById('test-llm-output');
+            btn.disabled = true;
+            btn.textContent = translations.testLlmRunning[currentLang];
+            output.style.display = 'block';
+            output.textContent = 'Connecting...';
+
+            try {
+                const resp = await fetch(`${config.apiBaseUrl}/test-llm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const data = await resp.json();
+                const lines = [
+                    `Status: ${data.ok ? '✅ OK' : '❌ FAILED'}`,
+                    `Model: ${data.model || 'unknown'}`,
+                    `Provider: ${data.provider || 'unknown'}`,
+                    `Response length: ${data.response_length ?? 0} chars`,
+                    `Has \`\`\` code block: ${data.has_code_block ? '✅' : '❌'}`,
+                    `Has <html> tag: ${data.has_html_tag ? '✅' : '❌'}`,
+                    ``,
+                    `--- Raw Response ---`,
+                    data.raw || data.error || 'No response',
+                ];
+                output.textContent = lines.join('\n');
+            } catch (err) {
+                output.textContent = `❌ Connection failed: ${err.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = translations.testLlm[currentLang];
+            }
+        });
+
+        document.getElementById('mode-switcher')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.mode-btn');
+            if (!btn) return;
+            selectedMode = btn.dataset.mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
         languageSwitcher.addEventListener('click', (e) => {
             const target = e.target.closest('button');
             if (target) setLanguage(target.dataset.lang);

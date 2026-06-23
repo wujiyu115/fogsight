@@ -1,0 +1,29 @@
+{
+  "name": "fogsight-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon --watch server.js --watch src --ext js,ts,tsx,json server.js",
+    "build": "remotion bundle src/index.ts --out-dir bundled",
+    "preview": "remotion studio"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "express": "^5.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "@remotion/cli": "^4.0.0",
+    "@types/express": "^5.0.0",
+    "@types/react": "^18.3.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.0"
+  }
+}
