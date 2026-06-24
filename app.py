@@ -108,15 +108,17 @@ async def llm_event_stream(
     topic: str,
     history: Optional[List[dict]] = None,
     model: str = None, # Will use MODEL from config if not specified
+    system_prompt: Optional[str] = None, # 覆盖默认动画系统提示（连通性测试用轻量提示）
 ) -> AsyncGenerator[str, None]:
     history = history or []
-    
+
     # Use configured model if not specified
     if model is None:
         model = MODEL
-    
+
     # The system prompt is now more focused
-    system_prompt = f"""请你生成一个非常精美的动态动画,讲讲 {topic}
+    if system_prompt is None:
+        system_prompt = f"""请你生成一个非常精美的动态动画,讲讲 {topic}
 要动态的,要像一个完整的,正在播放的视频。包含一个完整的过程，能把知识点讲清楚。
 页面极为精美，好看，有设计感，同时能够很好的传达知识。知识和图像要准确
 附带一些旁白式的文字解说,从头到尾讲清楚一个小的知识点
@@ -418,10 +420,12 @@ async def generate(
 async def test_llm(request: Request):
     """Send a short test prompt to verify LLM connectivity and response format."""
     test_prompt = "请用一句话介绍自己，然后输出一个最简单的HTML: <html><body><h1>Hello</h1></body></html>，用```html包裹。"
+    # 连通性测试用轻量系统提示，避免动画长提示触发 GLM 长时间 thinking 导致前端长时间 "Connecting..."
+    test_system = "You are a helpful assistant. Reply concisely."
 
     collected = ""
     try:
-        async for chunk in llm_event_stream(test_prompt):
+        async for chunk in llm_event_stream(test_prompt, system_prompt=test_system):
             if "event" in chunk and "[DONE]" in chunk:
                 break
             if chunk.startswith("data: "):
