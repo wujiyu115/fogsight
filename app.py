@@ -31,22 +31,35 @@ credentials = json.load(open("credentials.json"))
 API_KEY = credentials["API_KEY"]
 BASE_URL = credentials.get("BASE_URL", "")
 MODEL = credentials.get("MODEL", "gemini-2.5-pro")
+# 显式 provider 配置：可选值为 "anthropic" / "openai" / "gemini"
+# 留空则按 API_KEY / BASE_URL 自动推断
+PROVIDER = credentials.get("PROVIDER", "").strip().lower()
 
 if API_KEY.startswith("sk-REPLACE_ME"):
     raise RuntimeError("请在环境变量里配置 API_KEY")
 
-# Provider detection: anthropic > openai-compatible > gemini
-# sk-ant-* = Anthropic native
-# sk-*     = OpenAI-compatible (OpenRouter, DashScope, etc.)
-# other    = Gemini
-PROVIDER = "openai"
+# Provider 推断（仅当 credentials.json 未显式指定 PROVIDER 时生效）：
+#   sk-ant-* 或 BASE_URL 含 anthropic  -> anthropic
+#   sk-*                               -> openai-compatible (OpenRouter / DashScope 等)
+#   其它                                -> gemini
+if not PROVIDER:
+    if API_KEY.startswith("sk-ant-") or "anthropic" in BASE_URL.lower():
+        PROVIDER = "anthropic"
+    elif API_KEY.startswith("sk-"):
+        PROVIDER = "openai"
+    else:
+        PROVIDER = "gemini"
 
-if API_KEY.startswith("sk-ant-") or "anthropic" in BASE_URL.lower():
+if PROVIDER == "anthropic":
     if anthropic is None:
         raise RuntimeError("请安装 anthropic: pip install anthropic")
-    anthropic_client = anthropic.AsyncAnthropic(api_key=API_KEY)
-    PROVIDER = "anthropic"
-elif API_KEY.startswith("sk-"):
+    # 必须显式传入 base_url，否则 SDK 默认请求 api.anthropic.com，
+    # 三方 anthropic 兼容端点（如 DashScope /apps/anthropic）会返回 403
+    anthropic_client = anthropic.AsyncAnthropic(
+        api_key=API_KEY,
+        base_url=BASE_URL or None,
+    )
+elif PROVIDER == "openai":
     extra_headers = {}
     if "openrouter.ai" in BASE_URL.lower():
         extra_headers = {
@@ -58,11 +71,11 @@ elif API_KEY.startswith("sk-"):
         base_url=BASE_URL,
         default_headers=extra_headers
     )
-    PROVIDER = "openai"
-else:
+elif PROVIDER == "gemini":
     os.environ["GEMINI_API_KEY"] = API_KEY
     gemini_client = genai.Client()
-    PROVIDER = "gemini"
+else:
+    raise RuntimeError(f"不支持的 PROVIDER: {PROVIDER}（可选: anthropic / openai / gemini）")
 
 USE_GEMINI = (PROVIDER == "gemini")
 
@@ -417,11 +430,11 @@ async def test_llm(request: Request):
                     if "token" in data:
                         collected += data["token"]
                     elif "error" in data:
-                        return JSONResponse({"ok": False, "error": data["error"], "raw": collected})
+                        return JSONResponse({"ok": False, "error": data["error"], "model": MODEL, "provider": PROVIDER, "raw": collected})
                 except json.JSONDecodeError:
                     pass
     except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e), "raw": collected})
+        return JSONResponse({"ok": False, "error": str(e), "model": MODEL, "provider": PROVIDER, "raw": collected})
 
     has_code_block = "```" in collected
     has_html = "<html" in collected.lower() or "<!doctype" in collected.lower()
