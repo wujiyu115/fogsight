@@ -116,8 +116,8 @@ def _clip(s: str, n: int = 80) -> str:
 class GenTracker:
     """记录一次 HTML/视频/test 生成的开始与结束打点。"""
 
-    def __init__(self, endpoint: str, topic: str, kind: str):
-        self.gen_id = uuid.uuid4().hex[:12]
+    def __init__(self, endpoint: str, topic: str, kind: str, gen_id: Optional[str] = None):
+        self.gen_id = (gen_id or uuid.uuid4().hex[:12])
         self.endpoint = endpoint
         self.kind = kind  # "html" | "video" | "test"
         self.topic = topic or ""
@@ -175,6 +175,7 @@ class ChatRequest(BaseModel):
     topic: str
     history: Optional[List[dict]] = None
     mode: Optional[str] = "html"
+    genId: Optional[str] = None  # 前端生成的唯一 id，用于跨服务追踪同一次生成
 
 # -----------------------------------------------------------------------
 # 2. 核心：流式生成器 (现在会使用 history)
@@ -470,7 +471,7 @@ async def generate(
 
     async def event_generator():
         nonlocal accumulated_response
-        tracker = GenTracker("/generate", chat_request.topic, "html")
+        tracker = GenTracker("/generate", chat_request.topic, "html", gen_id=chat_request.genId)
         try:
             async for chunk in llm_event_stream(chat_request.topic, chat_request.history):
                 accumulated_response += chunk
@@ -568,7 +569,7 @@ async def generate_video(
     request: Request,
 ):
     async def event_generator():
-        tracker = GenTracker("/generate-video", chat_request.topic, "video")
+        tracker = GenTracker("/generate-video", chat_request.topic, "video", gen_id=chat_request.genId)
         collected = ""
         try:
             async for chunk in llm_video_event_stream(chat_request.topic, chat_request.history):
@@ -613,11 +614,15 @@ async def render_video(request: Request):
     scene_count = 0
     if isinstance(scene_data, dict) and isinstance(scene_data.get("scenes"), list):
         scene_count = len(scene_data["scenes"])
+    gen_id = body.get("genId")
+    # 用 header 把 genId 透传给渲染器，使同一次生成的 id 贯穿 后端 -> 渲染器 日志
+    render_headers = {"X-Gen-Id": gen_id} if gen_id else {}
     t0 = time.monotonic()
     try:
         resp = http_requests.post(
             f"{RENDERER_URL}/render",
             json=scene_data,
+            headers=render_headers,
             timeout=10,
         )
         dur = time.monotonic() - t0
@@ -626,12 +631,12 @@ async def render_video(request: Request):
         except ValueError:
             rj = {"error": f"renderer returned non-json (status {resp.status_code})"}
         task_id = rj.get("taskId") if isinstance(rj, dict) else None
-        logger.info("[render-video] queued task=%s scenes=%s renderer_status=%s duration=%.2fs",
-                    task_id, scene_count, resp.status_code, dur)
+        logger.info("[render-video] gen=%s queued task=%s scenes=%s renderer_status=%s duration=%.2fs",
+                    gen_id or "-", task_id, scene_count, resp.status_code, dur)
         return JSONResponse(rj, status_code=resp.status_code)
     except http_requests.exceptions.ConnectionError:
-        logger.error("[render-video] renderer unavailable scenes=%s duration=%.2fs",
-                     scene_count, time.monotonic() - t0)
+        logger.error("[render-video] gen=%s renderer unavailable scenes=%s duration=%.2fs",
+                     gen_id or "-", scene_count, time.monotonic() - t0)
         return JSONResponse(
             {"error": "Renderer service unavailable"},
             status_code=503,

@@ -76,7 +76,8 @@ async function renderVideo(taskId, sceneData) {
 
 	const t0 = Date.now();
 	const sceneCount = sceneData && Array.isArray(sceneData.scenes) ? sceneData.scenes.length : 0;
-	log('info', `render start task=${taskId}`, {scenes: sceneCount});
+	const genId = task.genId || '-';
+	log('info', `render start gen=${genId} task=${taskId}`, {scenes: sceneCount});
 
 	try {
 		task.status = 'rendering';
@@ -107,7 +108,7 @@ async function renderVideo(taskId, sceneData) {
 		task.status = 'done';
 		task.progress = 100;
 		task.outputPath = outputPath;
-		log('info', `render done task=${taskId}`, {
+		log('info', `render done gen=${genId} task=${taskId}`, {
 			scenes: sceneCount,
 			durationSec: ((Date.now() - t0) / 1000).toFixed(2),
 			output: outputPath,
@@ -115,7 +116,7 @@ async function renderVideo(taskId, sceneData) {
 	} catch (err) {
 		task.status = 'error';
 		task.error = err.message;
-		log('error', `render failed task=${taskId}`, {
+		log('error', `render failed gen=${genId} task=${taskId}`, {
 			scenes: sceneCount,
 			durationSec: ((Date.now() - t0) / 1000).toFixed(2),
 			err: err.message,
@@ -139,14 +140,16 @@ app.post('/render', (req, res) => {
 	}
 
 	const taskId = uuidv4();
+	const genId = req.get('X-Gen-Id') || null;
 	tasks.set(taskId, {
 		id: taskId,
+		genId,
 		status: 'queued',
 		progress: 0,
 		createdAt: Date.now(),
 	});
 
-	log('info', `render queued task=${taskId}`, {scenes: sceneData.scenes.length});
+	log('info', `render queued gen=${genId || '-'} task=${taskId}`, {scenes: sceneData.scenes.length});
 	renderVideo(taskId, sceneData);
 
 	res.json({taskId, status: 'queued'});

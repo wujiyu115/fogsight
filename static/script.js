@@ -1,8 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
     const config = {
-        apiBaseUrl: '', 
+        apiBaseUrl: '',
         defaultLang: 'zh',
     };
+
+    // 生成唯一 id，用于在前后端及渲染器日志中追踪同一次生成
+    function newGenId() {
+        try {
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return window.crypto.randomUUID();
+            }
+        } catch (e) { /* fall through */ }
+        return 'g-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
 
     const translations = {
         heroTitle: { zh: "在此赋予概念以生命，转瞬之间", en: "Bring Concepts to Life Here" },
@@ -108,6 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function startGeneration(topic) {
         console.log('Getting generation from backend.');
+        const genId = newGenId();
+        console.log('[gen] html genId=' + genId);
         appendUserMessage(topic);
         const agentThinkingMessage = appendAgentStatus(translations.agentThinking[currentLang]);
         const submitButton = document.querySelector('.submit-button');
@@ -124,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${config.apiBaseUrl}/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ topic: topic, history: conversationHistory })
+                body: JSON.stringify({ topic: topic, history: conversationHistory, genId })
             });
 
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -257,6 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function startVideoGeneration(topic) {
         console.log('Starting video generation for:', topic);
+        const genId = newGenId();
+        console.log('[gen] video genId=' + genId);
         appendUserMessage(topic);
         const agentThinkingMessage = appendAgentStatus(translations.agentThinking[currentLang]);
         const submitButton = document.querySelector('.submit-button');
@@ -273,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${config.apiBaseUrl}/generate-video`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ topic: topic, history: conversationHistory, mode: 'video' })
+                body: JSON.stringify({ topic: topic, history: conversationHistory, mode: 'video', genId })
             });
 
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -314,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         conversationHistory.push({ role: 'assistant', content: rawJsonText });
-                        await submitRenderJob(sceneData, topic);
+                        await submitRenderJob(sceneData, topic, genId);
                         scrollToBottom();
                         return;
                     }
@@ -365,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function submitRenderJob(sceneData, topic) {
+    async function submitRenderJob(sceneData, topic, genId) {
         const progressElement = appendRenderProgress();
         const percentEl = progressElement.querySelector('.render-percent');
         const fillEl = progressElement.querySelector('.render-progress-fill');
@@ -374,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const resp = await fetch(`${config.apiBaseUrl}/render-video`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sceneData })
+                body: JSON.stringify({ sceneData, genId })
             });
 
             if (!resp.ok) throw new Error('Render request failed');
