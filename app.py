@@ -1,7 +1,11 @@
 import asyncio
 import json
+import logging
 import os
+import time
+import uuid
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from typing import AsyncGenerator, List, Optional
 
 import pytz
@@ -78,6 +82,77 @@ else:
     raise RuntimeError(f"不支持的 PROVIDER: {PROVIDER}（可选: anthropic / openai / gemini）")
 
 USE_GEMINI = (PROVIDER == "gemini")
+
+# -----------------------------------------------------------------------
+# 0.5 文件日志（轮转）+ 生成打点
+# -----------------------------------------------------------------------
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+logger = logging.getLogger("fogsight")
+logger.setLevel(logging.INFO)
+logger.propagate = False
+if not logger.handlers:
+    _fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    _fh = RotatingFileHandler(
+        os.path.join(LOG_DIR, "fogsight.log"),
+        maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8",
+    )
+    _fh.setFormatter(_fmt)
+    _sh = logging.StreamHandler()
+    _sh.setFormatter(_fmt)
+    logger.addHandler(_fh)
+    logger.addHandler(_sh)
+
+logger.info("=== fogsight backend starting | provider=%s model=%s base_url=%s ===",
+            PROVIDER, MODEL, BASE_URL or "(default)")
+
+
+def _clip(s: str, n: int = 80) -> str:
+    s = (s or "").replace("\n", " ").strip()
+    return s[:n] + ("…" if len(s) > n else "")
+
+
+class GenTracker:
+    """记录一次 HTML/视频/test 生成的开始与结束打点。"""
+
+    def __init__(self, endpoint: str, topic: str, kind: str):
+        self.gen_id = uuid.uuid4().hex[:12]
+        self.endpoint = endpoint
+        self.kind = kind  # "html" | "video" | "test"
+        self.topic = topic or ""
+        self.start = time.monotonic()
+        self.token_chunks = 0
+        self.text_len = 0
+        self.error = None
+        self.disconnected = False
+        logger.info(
+            "[START] gen=%s kind=%s endpoint=%s model=%s provider=%s topic=%s",
+            self.gen_id, self.kind, self.endpoint, MODEL, PROVIDER, _clip(self.topic),
+        )
+
+    def add_token(self, text):
+        self.token_chunks += 1
+        self.text_len += len(text or "")
+
+    def finish(self, **extra):
+        dur = time.monotonic() - self.start
+        if self.error:
+            status = "error"
+        elif self.disconnected:
+            status = "disconnected"
+        else:
+            status = "ok"
+        parts = [
+            f"gen={self.gen_id}", f"kind={self.kind}", f"status={status}",
+            f"duration={dur:.2f}s", f"tokens={self.token_chunks}",
+            f"text_len={self.text_len}",
+        ]
+        for k, v in extra.items():
+            parts.append(f"{k}={v}")
+        if self.error:
+            parts.append(f"error={self.error!r}")
+        logger.info("[END] " + " ".join(parts))
 
 templates = Jinja2Templates(directory="templates")
 
@@ -395,14 +470,32 @@ async def generate(
 
     async def event_generator():
         nonlocal accumulated_response
+        tracker = GenTracker("/generate", chat_request.topic, "html")
         try:
             async for chunk in llm_event_stream(chat_request.topic, chat_request.history):
                 accumulated_response += chunk
+                if chunk.startswith("data: "):
+                    try:
+                        d = json.loads(chunk[6:])
+                        if "token" in d:
+                            tracker.add_token(d["token"])
+                        elif "error" in d:
+                            tracker.error = str(d["error"])
+                    except json.JSONDecodeError:
+                        pass
                 if await request.is_disconnected():
+                    tracker.disconnected = True
                     break
                 yield chunk
         except Exception as e:
+            tracker.error = str(e)
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            low = accumulated_response.lower()
+            tracker.finish(
+                has_html="<html" in low or "<!doctype" in low,
+                has_code="```" in accumulated_response,
+            )
 
 
     async def wrapped_stream():
@@ -424,6 +517,7 @@ async def test_llm(request: Request):
     test_system = "You are a helpful assistant. Reply concisely."
 
     collected = ""
+    tracker = GenTracker("/test-llm", test_prompt, "test")
     try:
         async for chunk in llm_event_stream(test_prompt, system_prompt=test_system):
             if "event" in chunk and "[DONE]" in chunk:
@@ -433,15 +527,21 @@ async def test_llm(request: Request):
                     data = json.loads(chunk[6:])
                     if "token" in data:
                         collected += data["token"]
+                        tracker.add_token(data["token"])
                     elif "error" in data:
+                        tracker.error = str(data["error"])
+                        tracker.finish(has_html=False, has_code=False)
                         return JSONResponse({"ok": False, "error": data["error"], "model": MODEL, "provider": PROVIDER, "raw": collected})
                 except json.JSONDecodeError:
                     pass
     except Exception as e:
+        tracker.error = str(e)
+        tracker.finish(has_html=False, has_code=False)
         return JSONResponse({"ok": False, "error": str(e), "model": MODEL, "provider": PROVIDER, "raw": collected})
 
     has_code_block = "```" in collected
     has_html = "<html" in collected.lower() or "<!doctype" in collected.lower()
+    tracker.finish(has_html=has_html, has_code=has_code_block)
 
     return JSONResponse({
         "ok": True,
@@ -468,13 +568,31 @@ async def generate_video(
     request: Request,
 ):
     async def event_generator():
+        tracker = GenTracker("/generate-video", chat_request.topic, "video")
+        collected = ""
         try:
             async for chunk in llm_video_event_stream(chat_request.topic, chat_request.history):
+                collected += chunk
+                if chunk.startswith("data: "):
+                    try:
+                        d = json.loads(chunk[6:])
+                        if "token" in d:
+                            tracker.add_token(d["token"])
+                        elif "error" in d:
+                            tracker.error = str(d["error"])
+                    except json.JSONDecodeError:
+                        pass
                 if await request.is_disconnected():
+                    tracker.disconnected = True
                     break
                 yield chunk
         except Exception as e:
+            tracker.error = str(e)
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            low = collected.lower()
+            has_json = '"scenes"' in low and '"meta"' in low
+            tracker.finish(has_scenes=has_json, has_error='"error"' in low)
 
     headers = {
         "Cache-Control": "no-store",
@@ -489,16 +607,31 @@ async def render_video(request: Request):
     body = await request.json()
     scene_data = body.get("sceneData")
     if not scene_data:
+        logger.warning("[render-video] 400 missing sceneData")
         return JSONResponse({"error": "Missing sceneData"}, status_code=400)
 
+    scene_count = 0
+    if isinstance(scene_data, dict) and isinstance(scene_data.get("scenes"), list):
+        scene_count = len(scene_data["scenes"])
+    t0 = time.monotonic()
     try:
         resp = http_requests.post(
             f"{RENDERER_URL}/render",
             json=scene_data,
             timeout=10,
         )
-        return JSONResponse(resp.json(), status_code=resp.status_code)
+        dur = time.monotonic() - t0
+        try:
+            rj = resp.json()
+        except ValueError:
+            rj = {"error": f"renderer returned non-json (status {resp.status_code})"}
+        task_id = rj.get("taskId") if isinstance(rj, dict) else None
+        logger.info("[render-video] queued task=%s scenes=%s renderer_status=%s duration=%.2fs",
+                    task_id, scene_count, resp.status_code, dur)
+        return JSONResponse(rj, status_code=resp.status_code)
     except http_requests.exceptions.ConnectionError:
+        logger.error("[render-video] renderer unavailable scenes=%s duration=%.2fs",
+                     scene_count, time.monotonic() - t0)
         return JSONResponse(
             {"error": "Renderer service unavailable"},
             status_code=503,
