@@ -8,4 +8,3 @@ class ChatRequest(BaseModel):
     history: Optional[List[dict]] = None
     mode: Optional[str] = "html"
     genId: Optional[str] = None
-    renderer: Optional[str] = None

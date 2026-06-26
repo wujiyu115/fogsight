@@ -32,10 +32,7 @@ if __name__ == "__main__":
             reload=True,
             reload_dirs=[".", "templates", "static"],
             reload_includes=["*.py"],
-            reload_excludes=[
-                "renderer", "renderer-hyperframes", "renderer-rendervid",
-                "logs", "node_modules",
-            ],
+            reload_excludes=["renderer", "logs", "node_modules"],
         )
     else:
         uvicorn.run(app, host="0.0.0.0", port=port)

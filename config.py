@@ -61,5 +61,3 @@ else:
 USE_GEMINI = (PROVIDER == "gemini")
 
 RENDERER_URL = os.environ.get("RENDERER_URL", "http://localhost:3001")
-HYPERFRAMES_URL = os.environ.get("HYPERFRAMES_URL", "http://localhost:3002")
-RENDERVID_URL = os.environ.get("RENDERVID_URL", "http://localhost:3003")

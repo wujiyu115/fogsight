@@ -21,7 +21,7 @@ VIDEO_SYSTEM_PROMPT_TEMPLATE = """你是一个教学动画场景设计师。请�
   }},
   "transition": {{
     "type": "fade",
-    "duration": 0.5
+    "duration": 1.2
   }},
   "scenes": [
     // 场景数组，每个场景有 type 和 duration(秒)
@@ -29,16 +29,16 @@ VIDEO_SYSTEM_PROMPT_TEMPLATE = """你是一个教学动画场景设计师。请�
 }}
 
 transition.type 可以是: "fade"（淡入淡出）, "slide"（滑动）, "wipe"（擦除）, "none"（无过渡）
-transition.duration: 过渡时长（秒），默认 0.5
+transition.duration: 过渡时长（秒），推荐 1.0-1.5，不要低于 0.8
 transition.direction: 仅 slide/wipe 时有效，可选 "from-left", "from-right", "from-top", "from-bottom"
 
 可用的场景类型：
 
 1. "title" - 标题页
-   {{"type": "title", "duration": 3, "title": "主标题", "subtitle": "英文副标题", "description": "一句话描述"}}
+   {{"type": "title", "duration": 5, "title": "主标题", "subtitle": "英文副标题", "description": "一句话描述"}}
 
 2. "content" - 内容页（文字+可视化）
-   {{"type": "content", "duration": 5, "title": "标题", "body": "详细说明文字",
+   {{"type": "content", "duration": 8, "title": "标题", "body": "详细说明文字",
     "visual": {{...}}
    }}
    visual.type 可以是以下类型之一：
@@ -55,7 +55,7 @@ transition.direction: 仅 slide/wipe 时有效，可选 "from-left", "from-right
    - "tree"（树形结构）: {{"type": "tree", "root": {{"id": "1", "label": "根节点", "children": [{{"id": "2", "label": "左子树"}}, {{"id": "3", "label": "右子树", "children": [{{"id": "4", "label": "叶子"}}]}}]}}, "highlight": ["2"]}}
 
 3. "steps" - 步骤演示页（逐步动画）
-   {{"type": "steps", "duration": 8, "title": "步骤标题",
+   {{"type": "steps", "duration": 12, "title": "步骤标题",
     "steps": [
       {{"data": [5,3,8,1], "highlight": [0,1], "colors": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"], "labels": ["A", "B", "C", "D"], "action": "swap", "label": "比较并交换"}},
       {{"data": [3,5,8,1], "highlight": [1,2], "colors": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"], "labels": ["A", "B", "C", "D"], "action": "keep", "label": "保持不变"}}
@@ -65,21 +65,21 @@ transition.direction: 仅 slide/wipe 时有效，可选 "from-left", "from-right
    action 可以是: "swap", "insert", "compare", "keep", "remove"
 
 4. "code" - 代码展示页
-   {{"type": "code", "duration": 6, "title": "代码实现", "language": "python",
+   {{"type": "code", "duration": 8, "title": "代码实现", "language": "python",
     "code": "def bubble_sort(arr):\\n    ...", "highlights": [2, 3]
    }}
 
 5. "compare" - 对比页
-   {{"type": "compare", "duration": 5, "title": "对比标题",
+   {{"type": "compare", "duration": 7, "title": "对比标题",
     "left": {{"label": "左侧标签", "items": ["项目1", "项目2"]}},
     "right": {{"label": "右侧标签", "items": ["项目1", "项目2"]}}
    }}
 
 6. "summary" - 总结页
-   {{"type": "summary", "duration": 4, "title": "总结", "points": ["要点1", "要点2", "要点3"]}}
+   {{"type": "summary", "duration": 6, "title": "总结", "points": ["要点1", "要点2", "要点3"]}}
 
 7. "timeline" - 时间线页
-   {{"type": "timeline", "duration": 6, "title": "发展历程",
+   {{"type": "timeline", "duration": 8, "title": "发展历程",
     "events": [
       {{"time": "1950", "title": "起步阶段", "description": "早期探索与发展"}},
       {{"time": "1980", "title": "成熟期", "description": "技术逐渐成熟"}},
@@ -88,23 +88,23 @@ transition.direction: 仅 slide/wipe 时有效，可选 "from-left", "from-right
    }}
 
 8. "formula" - 公式展示页
-   {{"type": "formula", "duration": 4, "title": "核心公式",
+   {{"type": "formula", "duration": 6, "title": "核心公式",
     "formula": "E = mc²", "description": "质能等价关系，描述质量与能量的转换"
    }}
 
 9. "quote" - 引言/要点卡片
-   {{"type": "quote", "duration": 4,
+   {{"type": "quote", "duration": 5,
     "quote": "学而不思则罔，思而不学则殆",
     "attribution": "— 孔子", "highlight": true
    }}
 
 10. "diagram" - 流程图/架构图页（全屏流程图，适合展示系统架构或复杂流程）
-    {{"type": "diagram", "duration": 6, "title": "系统架构", "description": "整体架构说明",
+    {{"type": "diagram", "duration": 8, "title": "系统架构", "description": "整体架构说明",
      "flowchart": {{"type": "flowchart", "nodes": [{{"id": "a", "label": "输入", "style": "rounded"}}, {{"id": "b", "label": "处理"}}, {{"id": "c", "label": "输出", "style": "rounded"}}], "edges": [{{"from": "a", "to": "b"}}, {{"from": "b", "to": "c"}}], "direction": "vertical"}}
     }}
 
 要求：
-- 生成 6-15 个场景，总时长 30-90 秒
+- 生成 6-12 个场景，总时长 60-120 秒，每个场景至少 5 秒，让观众有充分时间阅读和理解
 - 第一个场景必须是 title 类型
 - 最后一个场景建议是 summary 类型
 - 使用和谐的深色配色方案，但所有文字必须使用浅色/亮色（如白色、浅灰），确保在深色背景上清晰可读，绝对不要使用深色文字

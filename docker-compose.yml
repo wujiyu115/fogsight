@@ -11,8 +11,6 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - RENDERER_URL=http://renderer:3001
-      - HYPERFRAMES_URL=http://hyperframes:3002
-      - RENDERVID_URL=http://rendervid:3003
     depends_on:
       renderer:
         condition: service_healthy
@@ -38,37 +36,5 @@ services:
       retries: 5
       start_period: 120s
 
-  hyperframes:
-    build: ./renderer-hyperframes
-    profiles: ["all"]
-    environment:
-      - HYPERFRAMES_PORT=3002
-    volumes:
-      - video-output-hf:/app/output
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  rendervid:
-    build: ./renderer-rendervid
-    profiles: ["all"]
-    environment:
-      - RENDERVID_PORT=3003
-    volumes:
-      - video-output-rv:/app/output
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
 volumes:
   video-output:
-  video-output-hf:
-  video-output-rv:

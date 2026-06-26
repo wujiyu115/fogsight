@@ -89,43 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let accumulatedCode = '';
     let placeholderInterval;
     let selectedMode = 'html';
-    let selectedRenderer = 'remotion';
-    const rendererFormats = {};
-    const rendererSelector = document.getElementById('renderer-selector');
-    const rendererSelect = document.getElementById('renderer-select');
-
-    const rendererAvailable = { remotion: true, hyperframes: false, rendervid: false };
-
-    if (rendererSelect) {
-        rendererSelect.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (!rendererAvailable[val]) {
-                showWarning(currentLang === 'zh'
-                    ? `${val} 引擎未启动，请选择其他引擎`
-                    : `${val} engine is offline, please choose another`);
-                e.target.value = selectedRenderer;
-                return;
-            }
-            selectedRenderer = val;
-        });
-    }
-
-    fetch(`${config.apiBaseUrl}/renderers`)
-        .then(r => r.json())
-        .then(renderers => {
-            if (!rendererSelect) return;
-            renderers.forEach(r => {
-                rendererFormats[r.name] = r.outputFormat || 'json';
-                rendererAvailable[r.name] = r.available;
-                const opt = rendererSelect.querySelector(`option[value="${r.name}"]`);
-                if (opt && !r.available) {
-                    opt.disabled = true;
-                    opt.textContent += ' (offline)';
-                }
-            });
-        })
-        .catch(() => {});
-
     function handleFormSubmit(e) {
         e.preventDefault();
         const isInitial = e.currentTarget.id === 'initial-form';
@@ -323,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${config.apiBaseUrl}/generate-video`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ topic: topic, history: conversationHistory, mode: 'video', genId, renderer: selectedRenderer })
+                body: JSON.stringify({ topic: topic, history: conversationHistory, mode: 'video', genId })
             });
 
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -352,23 +315,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             markCodeAsComplete(codeBlockElement);
                         }
 
-                        const outputFormat = rendererFormats[selectedRenderer] || 'json';
                         let sceneData;
-                        if (outputFormat === 'html') {
-                            let htmlContent = rawJsonText.trim();
-                            const htmlMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
-                            if (htmlMatch) htmlContent = htmlMatch[1].trim();
-                            sceneData = htmlContent;
-                        } else {
-                            try {
-                                let jsonToParse = rawJsonText.trim();
-                                const mdMatch = jsonToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
-                                if (mdMatch) jsonToParse = mdMatch[1].trim();
-                                sceneData = JSON.parse(jsonToParse);
-                            } catch (err) {
-                                console.error('Failed to parse scene JSON:', err);
-                                throw new LLMParseError('Invalid scene JSON received.');
-                            }
+                        try {
+                            let jsonToParse = rawJsonText.trim();
+                            const mdMatch = jsonToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+                            if (mdMatch) jsonToParse = mdMatch[1].trim();
+                            sceneData = JSON.parse(jsonToParse);
+                        } catch (err) {
+                            console.error('Failed to parse scene JSON:', err);
+                            throw new LLMParseError('Invalid scene JSON received.');
                         }
 
                         conversationHistory.push({ role: 'assistant', content: rawJsonText });
@@ -432,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const resp = await fetch(`${config.apiBaseUrl}/render-video`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sceneData, genId, renderer: selectedRenderer })
+                body: JSON.stringify({ sceneData, genId })
             });
 
             const result = await resp.json();
@@ -448,8 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const detail = err.message || '';
             if (detail.includes('unavailable') || detail.includes('connection')) {
                 showWarning(currentLang === 'zh'
-                    ? `渲染引擎 ${selectedRenderer} 服务未启动`
-                    : `Renderer ${selectedRenderer} service is offline`);
+                    ? '渲染引擎服务未启动'
+                    : 'Renderer service is offline');
             } else {
                 showWarning(translations.renderError[currentLang]);
             }
@@ -738,9 +693,6 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedMode = btn.dataset.mode;
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            if (rendererSelector) {
-                rendererSelector.style.display = selectedMode === 'video' ? '' : 'none';
-            }
         });
         languageSwitcher.addEventListener('click', (e) => {
             const target = e.target.closest('button');
