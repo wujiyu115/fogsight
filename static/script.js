@@ -89,6 +89,29 @@ document.addEventListener('DOMContentLoaded', () => {
     let accumulatedCode = '';
     let placeholderInterval;
     let selectedMode = 'html';
+    let selectedRenderer = 'remotion';
+    const rendererSelector = document.getElementById('renderer-selector');
+    const rendererSelect = document.getElementById('renderer-select');
+
+    if (rendererSelect) {
+        rendererSelect.addEventListener('change', (e) => {
+            selectedRenderer = e.target.value;
+        });
+    }
+
+    fetch(`${config.apiBaseUrl}/renderers`)
+        .then(r => r.json())
+        .then(renderers => {
+            if (!rendererSelect) return;
+            renderers.forEach(r => {
+                const opt = rendererSelect.querySelector(`option[value="${r.name}"]`);
+                if (opt && !r.available) {
+                    opt.disabled = true;
+                    opt.textContent += ' (offline)';
+                }
+            });
+        })
+        .catch(() => {});
 
     function handleFormSubmit(e) {
         e.preventDefault();
@@ -287,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${config.apiBaseUrl}/generate-video`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ topic: topic, history: conversationHistory, mode: 'video', genId })
+                body: JSON.stringify({ topic: topic, history: conversationHistory, mode: 'video', genId, renderer: selectedRenderer })
             });
 
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -388,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const resp = await fetch(`${config.apiBaseUrl}/render-video`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sceneData, genId })
+                body: JSON.stringify({ sceneData, genId, renderer: selectedRenderer })
             });
 
             if (!resp.ok) throw new Error('Render request failed');
@@ -684,6 +707,9 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedMode = btn.dataset.mode;
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            if (rendererSelector) {
+                rendererSelector.style.display = selectedMode === 'video' ? '' : 'none';
+            }
         });
         languageSwitcher.addEventListener('click', (e) => {
             const target = e.target.closest('button');

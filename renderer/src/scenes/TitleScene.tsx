@@ -63,7 +63,7 @@ export const TitleScene: React.FC<Props> = ({scene, theme}) => {
 						style={{
 							fontSize: 36,
 							fontWeight: 300,
-							color: theme.primary,
+							color: `${theme.textColor}cc`,
 							letterSpacing: 4,
 						}}
 					/>

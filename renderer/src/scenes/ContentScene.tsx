@@ -1,8 +1,12 @@
 import React from 'react';
-import {AbsoluteFill, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill} from 'remotion';
 import type {ThemeConfig, ContentScene as ContentSceneType} from '../types';
 import {AnimatedText} from '../components/AnimatedText';
 import {ArrayVisual} from '../components/ArrayVisual';
+import {PieChart} from '../components/PieChart';
+import {LineChart} from '../components/LineChart';
+import {FlowChart} from '../components/FlowChart';
+import {TreeVisual} from '../components/TreeVisual';
 
 interface Props {
 	scene: ContentSceneType;
@@ -56,11 +60,44 @@ export const ContentScene: React.FC<Props> = ({scene, theme}) => {
 
 			{hasVisual && scene.visual && (
 				<div style={{flex: '0 0 50%'}}>
-					{scene.visual.type === 'array' && scene.visual.data && (
+					{scene.visual.type === 'array' && (
 						<ArrayVisual
 							data={scene.visual.data}
 							highlight={scene.visual.highlight}
+							colors={scene.visual.colors}
+							labels={scene.visual.labels}
 							animation={scene.visual.animation}
+							theme={theme}
+						/>
+					)}
+					{scene.visual.type === 'pie' && (
+						<PieChart
+							segments={scene.visual.segments}
+							donut={scene.visual.donut}
+							theme={theme}
+						/>
+					)}
+					{scene.visual.type === 'line' && (
+						<LineChart
+							points={scene.visual.points}
+							labels={scene.visual.labels}
+							lineColor={scene.visual.lineColor}
+							fillArea={scene.visual.fillArea}
+							theme={theme}
+						/>
+					)}
+					{scene.visual.type === 'flowchart' && (
+						<FlowChart
+							nodes={scene.visual.nodes}
+							edges={scene.visual.edges}
+							direction={scene.visual.direction}
+							theme={theme}
+						/>
+					)}
+					{scene.visual.type === 'tree' && (
+						<TreeVisual
+							root={scene.visual.root}
+							highlight={scene.visual.highlight}
 							theme={theme}
 						/>
 					)}

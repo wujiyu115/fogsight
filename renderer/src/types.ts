@@ -13,13 +13,70 @@ export interface MetaConfig {
   height: number;
 }
 
-export interface VisualConfig {
-  type: 'array' | 'tree' | 'flowchart' | 'graph' | 'custom';
-  data?: number[] | string[];
+// --- Visual configs (discriminated union) ---
+
+export interface ArrayVisualConfig {
+  type: 'array';
+  data: number[] | string[];
   highlight?: number[];
+  colors?: string[];
   animation?: 'swap' | 'insert' | 'highlight' | 'fade' | 'grow';
   labels?: string[];
 }
+
+export interface PieChartConfig {
+  type: 'pie';
+  segments: Array<{
+    label: string;
+    value: number;
+    color?: string;
+  }>;
+  donut?: boolean;
+}
+
+export interface LineChartConfig {
+  type: 'line';
+  points: number[];
+  labels?: string[];
+  lineColor?: string;
+  fillArea?: boolean;
+}
+
+export interface FlowChartConfig {
+  type: 'flowchart';
+  nodes: Array<{
+    id: string;
+    label: string;
+    style?: 'rectangle' | 'diamond' | 'rounded' | 'circle';
+  }>;
+  edges: Array<{
+    from: string;
+    to: string;
+    label?: string;
+  }>;
+  direction?: 'horizontal' | 'vertical';
+}
+
+export interface TreeNode {
+  id: string;
+  label: string;
+  children?: TreeNode[];
+}
+
+export interface TreeVisualConfig {
+  type: 'tree';
+  root: TreeNode;
+  highlight?: string[];
+}
+
+export type VisualConfig =
+  | ArrayVisualConfig
+  | PieChartConfig
+  | LineChartConfig
+  | FlowChartConfig
+  | TreeVisualConfig;
+
+// --- Scene types ---
 
 export interface TitleScene {
   type: 'title';
@@ -44,6 +101,8 @@ export interface StepsScene {
   steps: Array<{
     data: number[] | string[];
     highlight?: number[];
+    colors?: string[];
+    labels?: string[];
     action: 'swap' | 'insert' | 'compare' | 'keep' | 'remove';
     label?: string;
   }>;
@@ -73,18 +132,70 @@ export interface SummaryScene {
   points: string[];
 }
 
+export interface TimelineScene {
+  type: 'timeline';
+  duration: number;
+  title: string;
+  events: Array<{
+    time: string;
+    title: string;
+    description?: string;
+  }>;
+}
+
+export interface FormulaScene {
+  type: 'formula';
+  duration: number;
+  title: string;
+  formula: string;
+  description?: string;
+}
+
+export interface QuoteScene {
+  type: 'quote';
+  duration: number;
+  quote: string;
+  attribution?: string;
+  highlight?: boolean;
+}
+
+export interface DiagramScene {
+  type: 'diagram';
+  duration: number;
+  title: string;
+  description?: string;
+  flowchart: FlowChartConfig;
+}
+
 export type Scene =
   | TitleScene
   | ContentScene
   | StepsScene
   | CodeScene
   | CompareScene
-  | SummaryScene;
+  | SummaryScene
+  | TimelineScene
+  | FormulaScene
+  | QuoteScene
+  | DiagramScene;
+
+// --- Transition config ---
+
+export type TransitionType = 'fade' | 'slide' | 'wipe' | 'none';
+
+export interface TransitionConfig {
+  type: TransitionType;
+  duration?: number;
+  direction?: 'from-left' | 'from-right' | 'from-top' | 'from-bottom';
+}
+
+// --- Top-level data ---
 
 export interface SceneData {
   meta: MetaConfig;
   theme: ThemeConfig;
   scenes: Scene[];
+  transition?: TransitionConfig;
 }
 
 export interface RenderTask {

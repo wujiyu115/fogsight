@@ -69,6 +69,8 @@ export const StepsScene: React.FC<Props> = ({scene, theme}) => {
 				<ArrayVisual
 					data={currentStep.data}
 					highlight={currentStep.highlight}
+					colors={currentStep.colors}
+					labels={currentStep.labels}
 					animation={currentStep.action === 'swap' ? 'swap' : 'highlight'}
 					theme={theme}
 					prevData={prevStep?.data}

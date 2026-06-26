@@ -25,10 +25,19 @@ export const RemotionRoot: React.FC = () => {
 			defaultProps={{data: DEFAULT_DATA}}
 			calculateMetadata={({props}) => {
 				const {data} = props;
-				const totalDuration = data.scenes.reduce(
+				const totalSceneDuration = data.scenes.reduce(
 					(sum, scene) => sum + scene.duration,
 					0,
 				);
+
+				let transitionOverlap = 0;
+				if (data.transition && data.transition.type !== 'none' && data.scenes.length > 1) {
+					const transitionDuration = data.transition.duration ?? 0.5;
+					transitionOverlap = (data.scenes.length - 1) * transitionDuration;
+				}
+
+				const totalDuration = totalSceneDuration - transitionOverlap;
+
 				return {
 					fps: data.meta.fps,
 					width: data.meta.width,

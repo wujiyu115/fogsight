@@ -1,18 +1,28 @@
 import React from 'react';
-import {interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import type {ThemeConfig} from '../types';
 
 interface ArrayVisualProps {
 	data: (number | string)[];
 	highlight?: number[];
+	colors?: string[];
+	labels?: string[];
 	animation?: 'swap' | 'insert' | 'highlight' | 'fade' | 'grow';
 	theme: ThemeConfig;
 	prevData?: (number | string)[];
 }
 
+const DEFAULT_COLORS = [
+	'#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+	'#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
+	'#BB8FCE', '#85C1E9', '#F0B27A', '#82E0AA',
+];
+
 export const ArrayVisual: React.FC<ArrayVisualProps> = ({
 	data,
 	highlight = [],
+	colors,
+	labels,
 	animation = 'fade',
 	theme,
 	prevData,
@@ -23,6 +33,7 @@ export const ArrayVisual: React.FC<ArrayVisualProps> = ({
 	const barMaxHeight = 280;
 	const numericData = data.map((d) => (typeof d === 'number' ? d : 0));
 	const maxVal = Math.max(...numericData, 1);
+	const barColors = colors || DEFAULT_COLORS;
 
 	return (
 		<div
@@ -30,14 +41,15 @@ export const ArrayVisual: React.FC<ArrayVisualProps> = ({
 				display: 'flex',
 				alignItems: 'flex-end',
 				justifyContent: 'center',
-				gap: 12,
-				height: barMaxHeight + 60,
+				gap: 16,
+				height: barMaxHeight + (labels ? 100 : 60),
 				padding: '0 40px',
 			}}
 		>
 			{data.map((value, index) => {
 				const isHighlighted = highlight.includes(index);
 				const barHeight = (Number(value) / maxVal) * barMaxHeight;
+				const barColor = barColors[index % barColors.length];
 				const enterProgress = spring({
 					frame: frame - index * 3,
 					fps,
@@ -56,7 +68,7 @@ export const ArrayVisual: React.FC<ArrayVisualProps> = ({
 						fps,
 						config: {damping: 12, stiffness: 80},
 					});
-					const barWidth = 60 + 12;
+					const barWidth = 60 + 16;
 					if (index === i) swapOffset = (j - i) * barWidth * swapProgress;
 					if (index === j) swapOffset = (i - j) * barWidth * swapProgress;
 				}
@@ -79,7 +91,7 @@ export const ArrayVisual: React.FC<ArrayVisualProps> = ({
 								height: barHeight * enterProgress,
 								backgroundColor: isHighlighted
 									? theme.accent
-									: theme.primary,
+									: barColor,
 								borderRadius: '8px 8px 4px 4px',
 								boxShadow: isHighlighted
 									? `0 0 20px ${theme.accent}40`
@@ -89,7 +101,7 @@ export const ArrayVisual: React.FC<ArrayVisualProps> = ({
 						/>
 						<span
 							style={{
-								color: isHighlighted ? theme.accent : theme.textColor,
+								color: theme.textColor,
 								fontSize: 22,
 								fontWeight: 600,
 								fontFamily: theme.fontFamily,
@@ -98,6 +110,22 @@ export const ArrayVisual: React.FC<ArrayVisualProps> = ({
 						>
 							{value}
 						</span>
+						{labels && labels[index] && (
+							<span
+								style={{
+									color: barColor,
+									fontSize: 16,
+									fontWeight: 500,
+									fontFamily: theme.fontFamily,
+									opacity: enterProgress,
+									textAlign: 'center',
+									maxWidth: 80,
+									lineHeight: 1.2,
+								}}
+							>
+								{labels[index]}
+							</span>
+						)}
 					</div>
 				);
 			})}
