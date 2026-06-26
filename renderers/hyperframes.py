@@ -10,6 +10,7 @@ from renderers.base import BaseRenderer
 class HyperFramesRenderer(BaseRenderer):
     name = "hyperframes"
     temperature = 0.8
+    output_format = "html"
 
     def get_system_prompt(self, topic: str) -> str:
         return get_hyperframes_prompt(topic)

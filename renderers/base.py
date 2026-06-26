@@ -5,6 +5,7 @@ from typing import Optional
 class BaseRenderer(ABC):
     name: str = ""
     temperature: float = 0.7
+    output_format: str = "json"  # "json" or "html"
 
     @abstractmethod
     def get_system_prompt(self, topic: str) -> str:
