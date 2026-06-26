@@ -1,7 +1,6 @@
 import React from 'react';
 import {Sequence, useVideoConfig} from 'remotion';
 import {TransitionSeries, linearTiming} from '@remotion/transitions';
-import {fade} from '@remotion/transitions/fade';
 import {slide} from '@remotion/transitions/slide';
 import {wipe} from '@remotion/transitions/wipe';
 import type {SceneData, Scene, TransitionConfig} from './types';
@@ -17,9 +16,29 @@ import {FormulaScene} from './scenes/FormulaScene';
 import {QuoteScene} from './scenes/QuoteScene';
 import {DiagramScene} from './scenes/DiagramScene';
 
+function luminance(hex: string): number {
+	const c = hex.replace('#', '');
+	const r = parseInt(c.substring(0, 2), 16) / 255;
+	const g = parseInt(c.substring(2, 4), 16) / 255;
+	const b = parseInt(c.substring(4, 6), 16) / 255;
+	const toLinear = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+	return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function normalizeTheme(theme: SceneData['theme']): SceneData['theme'] {
+	const bgLum = luminance(theme.background);
+	const textLum = luminance(theme.textColor);
+	const contrast = (Math.max(bgLum, textLum) + 0.05) / (Math.min(bgLum, textLum) + 0.05);
+	if (contrast < 3) {
+		return {...theme, textColor: bgLum < 0.5 ? '#f8fafc' : '#1a1a2e'};
+	}
+	return theme;
+}
+
 export const SceneRenderer: React.FC<{data: SceneData}> = ({data}) => {
 	const {fps} = useVideoConfig();
-	const {theme, scenes, transition} = data;
+	const theme = normalizeTheme(data.theme);
+	const {scenes, transition} = data;
 
 	const hasTransitions = transition && transition.type !== 'none';
 
@@ -38,6 +57,7 @@ export const SceneRenderer: React.FC<{data: SceneData}> = ({data}) => {
 				key={`scene-${index}`}
 				durationInFrames={durationInFrames}
 			>
+				<Background theme={theme} />
 				<SceneSwitch scene={scene} theme={theme} />
 			</TransitionSeries.Sequence>,
 		);
@@ -52,25 +72,19 @@ export const SceneRenderer: React.FC<{data: SceneData}> = ({data}) => {
 		}
 	});
 
-	return (
-		<>
-			<Background theme={theme} />
-			<TransitionSeries>{elements}</TransitionSeries>
-		</>
-	);
+	return <TransitionSeries>{elements}</TransitionSeries>;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getPresentation(config: TransitionConfig): any {
 	switch (config.type) {
-		case 'fade':
-			return fade();
 		case 'slide':
+		case 'fade':
 			return slide({direction: config.direction ?? 'from-right'});
 		case 'wipe':
 			return wipe({direction: config.direction ?? 'from-left'});
 		default:
-			return fade();
+			return slide({direction: 'from-right'});
 	}
 }
 

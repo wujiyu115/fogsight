@@ -20,16 +20,17 @@ VIDEO_SYSTEM_PROMPT_TEMPLATE = """你是一个教学动画场景设计师。请�
     "fontFamily": "Inter, sans-serif"
   }},
   "transition": {{
-    "type": "fade",
-    "duration": 1.2
+    "type": "slide",
+    "duration": 1.0,
+    "direction": "from-right"
   }},
   "scenes": [
     // 场景数组，每个场景有 type 和 duration(秒)
   ]
 }}
 
-transition.type 可以是: "fade"（淡入淡出）, "slide"（滑动）, "wipe"（擦除）, "none"（无过渡）
-transition.duration: 过渡时长（秒），推荐 1.0-1.5，不要低于 0.8
+transition.type 可以是: "slide"（滑动，推荐）, "wipe"（擦除）, "none"（无过渡）。不要使用 "fade"，会导致新旧场景内容重叠。
+transition.duration: 过渡时长（秒），推荐 0.8-1.2
 transition.direction: 仅 slide/wipe 时有效，可选 "from-left", "from-right", "from-top", "from-bottom"
 
 可用的场景类型：
@@ -107,8 +108,9 @@ transition.direction: 仅 slide/wipe 时有效，可选 "from-left", "from-right
 - 生成 6-12 个场景，总时长 60-120 秒，每个场景至少 5 秒，让观众有充分时间阅读和理解
 - 第一个场景必须是 title 类型
 - 最后一个场景建议是 summary 类型
-- 使用和谐的深色配色方案，但所有文字必须使用浅色/亮色（如白色、浅灰），确保在深色背景上清晰可读，绝对不要使用深色文字
-- 使用 transition 设置场景过渡效果（推荐 "fade" 或 "slide"），让视频更流畅
+- 配色方案：深色背景（如 #0f172a、#1a1a2e、#0d1117）+ 亮色文字（textColor 必须是 #ffffff 或 #f8fafc 等浅色）。绝对不要将 textColor 设为深色（如 #333、#1d1d1f），否则在深色背景上完全看不清
+- 使用 transition 设置场景过渡效果（推荐 "slide"），让视频更流畅
+- 尽量多使用图形化场景（content+visual、steps、diagram、timeline），减少纯文字场景，用图形和动画帮助观众理解概念
 - 柱状图（array）必须提供 labels 字段标注每个柱子的含义，以及 colors 字段为每个柱子指定不同的亮色，确保视觉上能清晰区分不同角色/分类
 - 所有可视化图表中不同数据项必须使用不同颜色，颜色要鲜明、饱和度高，在深色背景上醒目
 - 合理使用不同的 visual 类型来展示数据：数值比较用 array，占比用 pie，趋势用 line，流程用 flowchart，层次用 tree
